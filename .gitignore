@@ -1,0 +1,7 @@
+/target
+/server/target
+*.log
+.DS_Store
+
+/extension.wasm
+/grammars

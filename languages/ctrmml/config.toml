@@ -1,0 +1,4 @@
+name = "ctrmml"
+grammar = "ctrmml"
+path_suffixes = ["mml"]
+line_comments = [";"]
