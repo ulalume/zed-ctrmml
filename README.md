@@ -2,14 +2,18 @@
 
 Zed extension + LSP for ctrmml.
 
-## Build (local dev)
+> ⚠️ **Early Development**: This project is in active development and features may be incomplete.
 
-From this repo:
+## Features
 
-```sh
-# Build the extension (WASM)
-cargo build
-```
+- Tree-sitter syntax highlighting for MML.
+- LSP completions (metadata, commands, platform values, PCM paths).
+- Code Actions: play, play from cursor, stop, export vgm/wav.
+
+## Usage
+
+- Code Actions: macOS `Cmd + .`, Windows/Linux `Ctrl + .`.
+- Run commands from the Code Actions list in an `.mml` file.
 
 ## Use in Zed (local dev)
 
@@ -21,3 +25,4 @@ cargo build
 
 - tree-sitter: https://github.com/ulalume/tree-sitter-ctrmml
 - language-server: https://github.com/ulalume/language-server-ctrmml
+- cmd: https://github.com/ulalume/ctrmml-cmd
