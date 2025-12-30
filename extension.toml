@@ -1,6 +1,6 @@
 id = "zed-ctrmml"
 name = "ctrmml"
-version = "0.0.11"
+version = "0.0.12"
 schema_version = 1
 authors = ["ulalume"]
 description = "ctrmml language support for Zed"
@@ -8,7 +8,7 @@ repository = "https://github.com/ulalume/zed-ctrmml"
 
 [grammars.ctrmml]
 repository = "https://github.com/ulalume/tree-sitter-ctrmml"
-rev = "0fc93208a838ca15633387fcdf5b764b95e5c614"
+rev = "d9f898f5f2ccdbbde53cc73af670dee05e3f26d1"
 
 [language_servers.ctrmml]
 name = "ctrmml LSP"

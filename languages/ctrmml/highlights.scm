@@ -1,4 +1,6 @@
 (comment) @comment
+((platform_command_keyword) @keyword
+  (#set! "priority" 110))
 (string) @string
 (number) @number
 
