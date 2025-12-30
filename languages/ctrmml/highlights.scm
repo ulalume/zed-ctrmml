@@ -7,6 +7,9 @@
 (meta_keyword) @preproc
 (meta_platform_value) @keyword
 (meta_value) @string
+((meta_value) @keyword
+  (#match? @keyword "^\\s*noextpitch\\s*$")
+  (#set! "priority" 120))
 (at_command) @function
 (track_selector) @title
 
