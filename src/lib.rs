@@ -10,12 +10,33 @@ struct CtrmmlExtension {
 }
 
 impl CtrmmlExtension {
-    fn language_server_command(
+    fn lsp_settings(
+        language_server_id: &LanguageServerId,
+        worktree: &zed::Worktree,
+    ) -> Option<LspSettings> {
+        LspSettings::for_worktree(language_server_id.as_ref(), worktree).ok()
+    }
+
+    fn lsp_settings_value<F>(
+        language_server_id: &LanguageServerId,
+        worktree: &zed::Worktree,
+        extractor: F,
+    ) -> Result<Option<zed::serde_json::Value>>
+    where
+        F: FnOnce(&LspSettings) -> Option<zed::serde_json::Value>,
+    {
+        let settings = Self::lsp_settings(language_server_id, worktree)
+            .and_then(|lsp_settings| extractor(&lsp_settings))
+            .unwrap_or_default();
+        Ok(Some(settings))
+    }
+
+    fn resolve_language_server_command(
         &mut self,
         language_server_id: &LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
-        let lsp_settings = LspSettings::for_worktree(language_server_id.as_ref(), worktree).ok();
+        let lsp_settings = Self::lsp_settings(language_server_id, worktree);
         let binary_settings = lsp_settings
             .as_ref()
             .and_then(|settings| settings.binary.as_ref());
@@ -151,7 +172,7 @@ impl zed::Extension for CtrmmlExtension {
         language_server_id: &zed::LanguageServerId,
         worktree: &zed::Worktree,
     ) -> zed::Result<zed::Command> {
-        self.language_server_command(language_server_id, worktree)
+        self.resolve_language_server_command(language_server_id, worktree)
     }
 
     fn language_server_initialization_options(
@@ -159,11 +180,9 @@ impl zed::Extension for CtrmmlExtension {
         server_id: &LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<Option<zed::serde_json::Value>> {
-        let settings = LspSettings::for_worktree(server_id.as_ref(), worktree)
-            .ok()
-            .and_then(|lsp_settings| lsp_settings.initialization_options.clone())
-            .unwrap_or_default();
-        Ok(Some(settings))
+        Self::lsp_settings_value(server_id, worktree, |lsp_settings| {
+            lsp_settings.initialization_options.clone()
+        })
     }
 
     fn language_server_workspace_configuration(
@@ -171,11 +190,9 @@ impl zed::Extension for CtrmmlExtension {
         server_id: &LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<Option<zed::serde_json::Value>> {
-        let settings = LspSettings::for_worktree(server_id.as_ref(), worktree)
-            .ok()
-            .and_then(|lsp_settings| lsp_settings.settings.clone())
-            .unwrap_or_default();
-        Ok(Some(settings))
+        Self::lsp_settings_value(server_id, worktree, |lsp_settings| {
+            lsp_settings.settings.clone()
+        })
     }
 }
 
