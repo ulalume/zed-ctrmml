@@ -26,3 +26,7 @@ Zed extension + LSP for ctrmml.
 - tree-sitter: https://github.com/ulalume/tree-sitter-ctrmml
 - language-server: https://github.com/ulalume/language-server-ctrmml
 - cmd: https://github.com/ulalume/ctrmml-cmd
+
+## License
+
+MIT
