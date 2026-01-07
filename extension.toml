@@ -1,6 +1,6 @@
 id = "zed-ctrmml"
 name = "ctrmml"
-version = "0.0.15"
+version = "0.0.16"
 schema_version = 1
 authors = ["ulalume"]
 description = "ctrmml language support for Zed"
