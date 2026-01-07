@@ -1,12 +1,79 @@
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    time::{Duration, SystemTime},
+};
 
 use zed_extension_api::{self as zed, settings::LspSettings, LanguageServerId, Result};
 
 const LSP_ID: &str = "ctrmml-lsp";
 const LSP_REPO: &str = "ulalume/language-server-ctrmml";
+const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(30 * 60);
+const UPDATE_CHECK_FILENAME: &str = ".ctrmml-lsp-last-check";
 
 struct CtrmmlExtension {
     cached_binary_path: Option<String>,
+}
+
+fn update_check_path() -> PathBuf {
+    Path::new(UPDATE_CHECK_FILENAME).to_path_buf()
+}
+
+fn read_last_update_check() -> Option<SystemTime> {
+    let contents = fs::read_to_string(update_check_path()).ok()?;
+    let secs = contents.trim().parse::<u64>().ok()?;
+    Some(SystemTime::UNIX_EPOCH + Duration::from_secs(secs))
+}
+
+fn update_check_due() -> bool {
+    match read_last_update_check() {
+        Some(last) => last
+            .elapsed()
+            .map(|elapsed| elapsed >= UPDATE_CHECK_INTERVAL)
+            .unwrap_or(true),
+        None => true,
+    }
+}
+
+fn record_update_check() {
+    let secs = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(duration) => duration.as_secs(),
+        Err(_) => return,
+    };
+    let _ = fs::write(update_check_path(), secs.to_string());
+}
+
+fn find_cached_binary(platform: zed::Os) -> Option<String> {
+    let bin_name = match platform {
+        zed::Os::Windows => format!("{LSP_ID}.exe"),
+        _ => LSP_ID.to_string(),
+    };
+    let mut best: Option<(SystemTime, PathBuf)> = None;
+    let entries = fs::read_dir(".").ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let name = entry.file_name();
+        if !name.to_string_lossy().starts_with(LSP_ID) {
+            continue;
+        }
+        let candidate = path.join(&bin_name);
+        if candidate.is_file() {
+            let modified = fs::metadata(&candidate)
+                .and_then(|meta| meta.modified())
+                .unwrap_or(SystemTime::UNIX_EPOCH);
+            let replace = match &best {
+                Some((current, _)) => modified > *current,
+                None => true,
+            };
+            if replace {
+                best = Some((modified, candidate));
+            }
+        }
+    }
+    best.map(|(_, path)| path.to_string_lossy().to_string())
 }
 
 impl CtrmmlExtension {
@@ -82,19 +149,41 @@ impl CtrmmlExtension {
             }
         }
 
+        let (platform, arch) = zed::current_platform();
+        let cached_disk_path = find_cached_binary(platform);
+        let check_due = cached_disk_path.is_none() || update_check_due();
+        if let Some(path) = cached_disk_path.clone() {
+            if !check_due {
+                self.cached_binary_path = Some(path.clone());
+                return Ok(path);
+            }
+        }
+
         zed::set_language_server_installation_status(
             language_server_id,
             &zed::LanguageServerInstallationStatus::CheckingForUpdate,
         );
-        let release = zed::latest_github_release(
+        let release = match zed::latest_github_release(
             LSP_REPO,
             zed::GithubReleaseOptions {
                 require_assets: true,
                 pre_release: false,
             },
-        )?;
+        ) {
+            Ok(release) => {
+                record_update_check();
+                release
+            }
+            Err(err) => {
+                if let Some(path) = cached_disk_path.as_ref() {
+                    record_update_check();
+                    self.cached_binary_path = Some(path.clone());
+                    return Ok(path.clone());
+                }
+                return Err(format!("failed to fetch release: {err}"));
+            }
+        };
 
-        let (platform, arch) = zed::current_platform();
         #[allow(unreachable_patterns)]
         let os = match platform {
             zed::Os::Mac => "macos",
@@ -120,11 +209,16 @@ impl CtrmmlExtension {
             arch = arch,
             extension = extension,
         );
-        let asset = release
-            .assets
-            .iter()
-            .find(|asset| asset.name == asset_name)
-            .ok_or(format!("no asset found matching {asset_name}"))?;
+        let asset = match release.assets.iter().find(|asset| asset.name == asset_name) {
+            Some(asset) => asset,
+            None => {
+                if let Some(path) = cached_disk_path.as_ref() {
+                    self.cached_binary_path = Some(path.clone());
+                    return Ok(path.clone());
+                }
+                return Err(format!("no asset found matching {asset_name}"));
+            }
+        };
 
         let version_dir = format!("{id}-{version}", id = LSP_ID, version = release.version);
         let bin_name = match platform {
@@ -138,15 +232,20 @@ impl CtrmmlExtension {
                 language_server_id,
                 &zed::LanguageServerInstallationStatus::Downloading,
             );
-            zed::download_file(
+            if let Err(err) = zed::download_file(
                 &asset.download_url,
                 &version_dir,
                 match platform {
                     zed::Os::Windows => zed::DownloadedFileType::Zip,
                     _ => zed::DownloadedFileType::GzipTar,
                 },
-            )
-            .map_err(|e| format!("failed to download language server: {e}"))?;
+            ) {
+                if let Some(path) = cached_disk_path.as_ref() {
+                    self.cached_binary_path = Some(path.clone());
+                    return Ok(path.clone());
+                }
+                return Err(format!("failed to download language server: {err}"));
+            }
         }
 
         let binary_path_str = binary_path.to_string_lossy().to_string();
