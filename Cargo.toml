@@ -1,6 +1,6 @@
 [package]
 name = "zed-ctrmml"
-version = "0.0.16"
+version = "0.1.0"
 edition = "2021"
 
 [lib]
@@ -8,4 +8,3 @@ crate-type = ["cdylib"]
 
 [dependencies]
 zed_extension_api = "0.7.0"
-

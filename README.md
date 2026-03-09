@@ -10,7 +10,7 @@ If you prefer VS Code, see https://github.com/ulalume/vscode-ctrmml
 
 - Tree-sitter syntax highlighting for MML.
 - LSP completions (metadata, commands, platform values, PCM paths).
-- Code Actions: play, play from cursor, stop, export vgm/wav.
+- Code Actions: play, play from cursor, stop, export vgm/wav, mdslink, quickrom.
 
 ## Usage
 
