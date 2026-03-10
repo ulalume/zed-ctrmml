@@ -10,6 +10,7 @@ If you prefer VS Code, see https://github.com/ulalume/vscode-ctrmml
 
 - Tree-sitter syntax highlighting for MML.
 - LSP completions (metadata, commands, platform values, PCM paths).
+- FM instrument completion: auto-scan workspace for instrument files (.dmp, .fui, .fur, .gin, .ginpkg, etc.) and insert FM parameters as MML.
 - Code Actions: play, play from cursor, stop, export vgm/wav, mdslink, quickrom.
 
 ## Usage
@@ -28,6 +29,7 @@ If you prefer VS Code, see https://github.com/ulalume/vscode-ctrmml
 - tree-sitter: https://github.com/ulalume/tree-sitter-ctrmml
 - language-server: https://github.com/ulalume/language-server-ctrmml
 - cmd: https://github.com/ulalume/ctrmml-cmd
+- ym2612_format: https://github.com/ulalume/ym2612_format
 
 ## License
 
