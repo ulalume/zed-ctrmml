@@ -2,3 +2,11 @@ name = "ctrmml"
 grammar = "ctrmml"
 path_suffixes = ["mml"]
 line_comments = [";"]
+autoclose_before = ";:.,=>])} \n\t\""
+brackets = [
+  { start = "[", end = "]", close = true, newline = false },
+  { start = "{", end = "}", close = true, newline = false },
+  { start = "(", end = ")", close = true, newline = false },
+  { start = "\"", end = "\"", close = true, newline = false },
+  { start = "'", end = "'", close = true, newline = false },
+]
