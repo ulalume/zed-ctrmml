@@ -9,9 +9,9 @@ use zed_extension_api::{self as zed, settings::LspSettings, LanguageServerId, Re
 const LSP_ID: &str = "ctrmml-lsp";
 const LSP_REPO: &str = "ulalume/language-server-ctrmml";
 // Pin to a known-good language-server release. Bump in lockstep with
-// `web-ctrmml/wasm-lang-core/build.sh` so the grammar contract stays
+// `megamml/wasm-lang-core/build.sh` so the grammar contract stays
 // in sync.
-const LSP_PINNED_TAG: &str = "v0.6.5";
+const LSP_PINNED_TAG: &str = "v0.6.7";
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(30 * 60);
 const UPDATE_CHECK_FILENAME: &str = ".ctrmml-lsp-last-check";
 
