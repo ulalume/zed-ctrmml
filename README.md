@@ -51,7 +51,7 @@ Example `settings.json` enabling arpeggio completions:
 - After changing options, restart the language server (Command Palette: `editor: restart language server`) or reload Zed.
 - `lsp.ctrmml.binary` (`path`, `arguments`, `env`) is honored too, if you want to run your own server binary.
 
-### Completion changes in language server v0.6.8
+### Completion changes in language server v0.6.9
 
 - Chord and dyad completion bodies now default to the stacked, octave-carrying form (e.g. `f/a/>c`). Set `chord_stack_mode` to `"plain"` to restore the old close voicing (`f/a/c`).
 - Meta values (`#platform`, `#option`, `#timesig`, `#group`) insert with an explicit replace range: accepting a suggestion replaces the value token you were typing instead of appending to it.
