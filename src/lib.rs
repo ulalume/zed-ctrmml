@@ -11,7 +11,7 @@ const LSP_ID: &str = "ctrmml-lsp";
 const LSP_REPO: &str = "ulalume/language-server-ctrmml";
 // Language-server release the extension is tested with. Bump together with
 // the pin in `megamml`'s `wasm-lang-core/build.sh`.
-const LSP_PINNED_TAG: &str = "v0.8.0";
+const LSP_PINNED_TAG: &str = "v0.8.1";
 
 struct CtrmmlExtension;
 
