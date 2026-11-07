@@ -6,9 +6,8 @@ use zed_extension_api::{
 
 const LSP_ID: &str = "ctrmml-lsp";
 const LSP_REPO: &str = "ulalume/language-server-ctrmml";
-// Pin to a known-good language-server release. Bump in lockstep with
-// `megamml/wasm-lang-core/build.sh` so the grammar contract stays
-// in sync.
+// Language-server release the extension is tested with. Bump together with
+// the pin in `megamml`'s `wasm-lang-core/build.sh`.
 const LSP_PINNED_TAG: &str = "v0.7.4";
 
 struct CtrmmlExtension;
