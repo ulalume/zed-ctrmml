@@ -44,7 +44,7 @@ Example `settings.json` enabling arpeggio completions:
 | `arpeggio_enabled` | `bool` | `false` | Enable arpeggio completions on track lines. |
 | `arpeggio_pattern` | `"up"` \| `"down"` \| `"updown"` \| `"downup"` \| `"alberti"` (case-insensitive) | `"up"` | Note order for arpeggio completions. |
 | `chord_stack_mode` | `"stack_up"` \| `"plain"` (`"stack-up"` accepted as alias) | `"stack_up"` | Voicing used for chord/dyad completion bodies. |
-| `fm_picker_hierarchy` | `bool` | *(omitted)* | Omitted: server decides from the editor (Zed gets the flat one-item-per-patch list). `true`: two-step file → patch picker. |
+| `fm_picker_hierarchy` | `bool` | `false` | `false`: one item per patch. `true`: two-step file → patch picker. |
 
 - camelCase key spellings (e.g. `arpeggioEnabled`) are also accepted.
 - Invalid values fall back to their defaults, with a warning logged by the server.

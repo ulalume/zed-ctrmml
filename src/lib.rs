@@ -1,7 +1,10 @@
 use std::{fs, path::Path};
 
 use zed_extension_api::{
-    self as zed, serde_json::Value, settings::LspSettings, LanguageServerId, Result,
+    self as zed,
+    serde_json::{json, Map, Value},
+    settings::LspSettings,
+    LanguageServerId, Result,
 };
 
 const LSP_ID: &str = "ctrmml-lsp";
@@ -11,6 +14,38 @@ const LSP_REPO: &str = "ulalume/language-server-ctrmml";
 const LSP_PINNED_TAG: &str = "v0.8.0";
 
 struct CtrmmlExtension;
+
+/// Initialization options for Zed, as `(snake_case, camelCase, value)`: lens
+/// titles in plain text without Load and Save, play and export as code
+/// actions (Zed has no status bar for them), every command run by the
+/// server, and the one-step FM picker.
+fn default_initialization_options() -> [(&'static str, &'static str, Value); 5] {
+    [
+        ("code_lens_icons", "codeLensIcons", json!("text")),
+        (
+            "code_lens_file_actions",
+            "codeLensFileActions",
+            json!(false),
+        ),
+        ("command_code_actions", "commandCodeActions", json!(true)),
+        ("client_commands", "clientCommands", json!([])),
+        ("fm_picker_hierarchy", "fmPickerHierarchy", json!(false)),
+    ]
+}
+
+/// The user's options over the defaults; a key set in either spelling wins.
+fn initialization_options(user: Option<Value>) -> Value {
+    let mut options = match user {
+        Some(Value::Object(options)) => options,
+        _ => Map::new(),
+    };
+    for (snake_case, camel_case, value) in default_initialization_options() {
+        if !options.contains_key(snake_case) && !options.contains_key(camel_case) {
+            options.insert(snake_case.to_string(), value);
+        }
+    }
+    Value::Object(options)
+}
 
 fn is_file(path: impl AsRef<Path>) -> bool {
     fs::metadata(path).is_ok_and(|meta| meta.is_file())
@@ -161,7 +196,7 @@ impl zed::Extension for CtrmmlExtension {
         let options = LspSettings::for_worktree(language_server_id.as_ref(), worktree)
             .ok()
             .and_then(|settings| settings.initialization_options);
-        Ok(Some(options.unwrap_or_default()))
+        Ok(Some(initialization_options(options)))
     }
 
     fn language_server_workspace_configuration(
