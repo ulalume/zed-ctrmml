@@ -22,7 +22,7 @@ If you prefer VS Code, see https://github.com/ulalume/vscode-ctrmml
 
 ## Configuration
 
-Completion behavior is configured through Zed's `lsp` settings via `initialization_options`. The settings key is the language-server ID `ctrmml` — not "ctrmml LSP", which is only the display name Zed's UI shows for the server.
+Completion behavior is configured through Zed's `lsp` settings via `settings`; changes apply without restarting the server. The settings key is the language-server ID `ctrmml` — not "ctrmml LSP", which is only the display name Zed's UI shows for the server.
 
 Example `settings.json` enabling arpeggio completions:
 
@@ -30,7 +30,7 @@ Example `settings.json` enabling arpeggio completions:
 {
   "lsp": {
     "ctrmml": {
-      "initialization_options": {
+      "settings": {
         "arpeggio_enabled": true,
         "arpeggio_pattern": "up"
       }
@@ -45,10 +45,11 @@ Example `settings.json` enabling arpeggio completions:
 | `arpeggio_pattern` | `"up"` \| `"down"` \| `"updown"` \| `"downup"` \| `"alberti"` (case-insensitive) | `"up"` | Note order for arpeggio completions. |
 | `chord_stack_mode` | `"stack_up"` \| `"plain"` (`"stack-up"` accepted as alias) | `"stack_up"` | Voicing used for chord/dyad completion bodies. |
 | `fm_picker_hierarchy` | `bool` | `false` | `false`: one item per patch. `true`: two-step file → patch picker. |
+| `command_path` | `string` | *(omitted)* | `ctrmml-cmd` to run. Omitted: `CTRMML_CMD_PATH`, then `PATH`, then the release the server downloads. |
 
 - camelCase key spellings (e.g. `arpeggioEnabled`) are also accepted.
-- Invalid values fall back to their defaults, with a warning logged by the server.
-- After changing options, restart the language server (Command Palette: `editor: restart language server`) or reload Zed.
+- Invalid values are ignored, with a warning logged by the server.
+- The same keys are accepted in `initialization_options`; `settings` wins, and a key removed from `settings` falls back to `initialization_options`. After changing `initialization_options`, restart the language server (Command Palette: `editor: restart language server`) or reload Zed.
 - `lsp.ctrmml.binary` (`path`, `arguments`, `env`) is honored too, if you want to run your own server binary.
 
 ### Completion changes in language server v0.6.9

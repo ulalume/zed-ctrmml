@@ -199,6 +199,7 @@ impl zed::Extension for CtrmmlExtension {
         Ok(Some(initialization_options(options)))
     }
 
+    /// The user's `settings` under `ctrmml`, the section the server pulls.
     fn language_server_workspace_configuration(
         &mut self,
         language_server_id: &LanguageServerId,
@@ -206,8 +207,9 @@ impl zed::Extension for CtrmmlExtension {
     ) -> Result<Option<Value>> {
         let settings = LspSettings::for_worktree(language_server_id.as_ref(), worktree)
             .ok()
-            .and_then(|settings| settings.settings);
-        Ok(Some(settings.unwrap_or_default()))
+            .and_then(|settings| settings.settings)
+            .unwrap_or_else(|| json!({}));
+        Ok(Some(json!({ "ctrmml": settings })))
     }
 }
 
