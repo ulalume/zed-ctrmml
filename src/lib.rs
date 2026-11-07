@@ -7,7 +7,7 @@ const LSP_REPO: &str = "ulalume/language-server-ctrmml";
 // Pin to a known-good language-server release. Bump in lockstep with
 // `megamml/wasm-lang-core/build.sh` so the grammar contract stays
 // in sync.
-const LSP_PINNED_TAG: &str = "v0.7.3";
+const LSP_PINNED_TAG: &str = "v0.7.4";
 
 struct CtrmmlExtension {
     cached_binary_path: Option<String>,
