@@ -1,8 +1,4 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    time::{Duration, SystemTime},
-};
+use std::{fs, path::Path};
 
 use zed_extension_api::{self as zed, settings::LspSettings, LanguageServerId, Result};
 
@@ -12,72 +8,86 @@ const LSP_REPO: &str = "ulalume/language-server-ctrmml";
 // `megamml/wasm-lang-core/build.sh` so the grammar contract stays
 // in sync.
 const LSP_PINNED_TAG: &str = "v0.7.3";
-const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(30 * 60);
-const UPDATE_CHECK_FILENAME: &str = ".ctrmml-lsp-last-check";
 
 struct CtrmmlExtension {
     cached_binary_path: Option<String>,
 }
 
-fn update_check_path() -> PathBuf {
-    Path::new(UPDATE_CHECK_FILENAME).to_path_buf()
+fn is_file(path: impl AsRef<Path>) -> bool {
+    fs::metadata(path).is_ok_and(|meta| meta.is_file())
 }
 
-fn read_last_update_check() -> Option<SystemTime> {
-    let contents = fs::read_to_string(update_check_path()).ok()?;
-    let secs = contents.trim().parse::<u64>().ok()?;
-    Some(SystemTime::UNIX_EPOCH + Duration::from_secs(secs))
-}
-
-fn update_check_due() -> bool {
-    match read_last_update_check() {
-        Some(last) => last
-            .elapsed()
-            .map(|elapsed| elapsed >= UPDATE_CHECK_INTERVAL)
-            .unwrap_or(true),
-        None => true,
-    }
-}
-
-fn record_update_check() {
-    let secs = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(duration) => duration.as_secs(),
-        Err(_) => return,
+/// Download and extract the pinned release into a temporary directory,
+/// then move it to `version_dir` in one rename.
+fn install(
+    platform: zed::Os,
+    arch: zed::Architecture,
+    version_dir: &str,
+    bin_name: &str,
+) -> Result<()> {
+    #[allow(unreachable_patterns)]
+    let os = match platform {
+        zed::Os::Mac => "macos",
+        zed::Os::Linux => "linux",
+        zed::Os::Windows => "windows",
+        _ => return Err(format!("unsupported platform {platform:?}")),
     };
-    let _ = fs::write(update_check_path(), secs.to_string());
-}
-
-fn find_cached_binary(platform: zed::Os) -> Option<String> {
-    let bin_name = match platform {
-        zed::Os::Windows => format!("{LSP_ID}.exe"),
-        _ => LSP_ID.to_string(),
+    let arch = match arch {
+        zed::Architecture::Aarch64 => "arm64",
+        zed::Architecture::X8664 => "x64",
+        _ => return Err(format!("unsupported architecture {arch:?}")),
     };
-    let mut best: Option<(SystemTime, PathBuf)> = None;
-    let entries = fs::read_dir(".").ok()?;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        let name = entry.file_name();
-        if !name.to_string_lossy().starts_with(LSP_ID) {
-            continue;
-        }
-        let candidate = path.join(&bin_name);
-        if candidate.is_file() {
-            let modified = fs::metadata(&candidate)
-                .and_then(|meta| meta.modified())
-                .unwrap_or(SystemTime::UNIX_EPOCH);
-            let replace = match &best {
-                Some((current, _)) => modified > *current,
-                None => true,
-            };
-            if replace {
-                best = Some((modified, candidate));
+    let (extension, file_type) = match platform {
+        zed::Os::Windows => ("zip", zed::DownloadedFileType::Zip),
+        _ => ("tar.gz", zed::DownloadedFileType::GzipTar),
+    };
+    let version = LSP_PINNED_TAG.trim_start_matches('v');
+    let asset_name = format!("{LSP_ID}-{version}-{os}-{arch}.{extension}");
+    let url =
+        format!("https://github.com/{LSP_REPO}/releases/download/{LSP_PINNED_TAG}/{asset_name}");
+
+    let temp_dir = format!(".download-{version_dir}");
+    let _ = fs::remove_dir_all(&temp_dir);
+    let result = zed::download_file(&url, &temp_dir, file_type)
+        .map_err(|err| format!("failed to download {url}: {err}"))
+        .and_then(|()| {
+            if is_file(Path::new(&temp_dir).join(bin_name)) {
+                Ok(())
+            } else {
+                Err(format!("{bin_name} not found in {asset_name}"))
             }
+        })
+        .and_then(|()| move_into_place(&temp_dir, version_dir, bin_name));
+    let _ = fs::remove_dir_all(&temp_dir);
+    result
+}
+
+fn move_into_place(temp_dir: &str, version_dir: &str, bin_name: &str) -> Result<()> {
+    if fs::rename(temp_dir, version_dir).is_ok() {
+        return Ok(());
+    }
+    if is_file(Path::new(version_dir).join(bin_name)) {
+        // Installed by someone else in the meantime.
+        return Ok(());
+    }
+    // A directory without the binary is not a usable install; replace it.
+    let _ = fs::remove_dir_all(version_dir);
+    fs::rename(temp_dir, version_dir)
+        .map_err(|err| format!("failed to install language server: {err}"))
+}
+
+/// Remove server directories of other versions.
+fn remove_other_versions(keep: &str) {
+    let Ok(entries) = fs::read_dir(".") else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name != keep && name.starts_with(&format!("{LSP_ID}-")) {
+            let _ = fs::remove_dir_all(entry.path());
         }
     }
-    best.map(|(_, path)| path.to_string_lossy().to_string())
 }
 
 impl CtrmmlExtension {
@@ -148,112 +158,38 @@ impl CtrmmlExtension {
         }
 
         if let Some(path) = &self.cached_binary_path {
-            if matches!(fs::metadata(path), Ok(stat) if stat.is_file()) {
+            if is_file(path) {
                 return Ok(path.clone());
             }
         }
 
         let (platform, arch) = zed::current_platform();
-        let cached_disk_path = find_cached_binary(platform);
-        let check_due = cached_disk_path.is_none() || update_check_due();
-        if let Some(path) = cached_disk_path.clone() {
-            if !check_due {
-                self.cached_binary_path = Some(path.clone());
-                return Ok(path);
-            }
-        }
-
-        zed::set_language_server_installation_status(
-            language_server_id,
-            &zed::LanguageServerInstallationStatus::CheckingForUpdate,
-        );
-        let release = match zed::github_release_by_tag_name(LSP_REPO, LSP_PINNED_TAG) {
-            Ok(release) => {
-                record_update_check();
-                release
-            }
-            Err(err) => {
-                if let Some(path) = cached_disk_path.as_ref() {
-                    record_update_check();
-                    self.cached_binary_path = Some(path.clone());
-                    return Ok(path.clone());
-                }
-                return Err(format!("failed to fetch release: {err}"));
-            }
-        };
-
-        #[allow(unreachable_patterns)]
-        let os = match platform {
-            zed::Os::Mac => "macos",
-            zed::Os::Linux => "linux",
-            zed::Os::Windows => "windows",
-            _ => return Err(format!("unsupported platform {platform:?}")),
-        };
-        let arch = match arch {
-            zed::Architecture::Aarch64 => "arm64",
-            zed::Architecture::X8664 => "x64",
-            _ => return Err(format!("unsupported architecture {arch:?}")),
-        };
-        let extension = match platform {
-            zed::Os::Windows => "zip",
-            _ => "tar.gz",
-        };
-        let version = release.version.trim_start_matches('v');
-        let asset_name = format!(
-            "{id}-{version}-{os}-{arch}.{extension}",
-            id = LSP_ID,
-            version = version,
-            os = os,
-            arch = arch,
-            extension = extension,
-        );
-        let asset = match release.assets.iter().find(|asset| asset.name == asset_name) {
-            Some(asset) => asset,
-            None => {
-                if let Some(path) = cached_disk_path.as_ref() {
-                    self.cached_binary_path = Some(path.clone());
-                    return Ok(path.clone());
-                }
-                return Err(format!("no asset found matching {asset_name}"));
-            }
-        };
-
-        let version_dir = format!("{id}-{version}", id = LSP_ID, version = release.version);
         let bin_name = match platform {
             zed::Os::Windows => format!("{LSP_ID}.exe"),
             _ => LSP_ID.to_string(),
         };
-        let binary_path = Path::new(&version_dir).join(&bin_name);
+        let version_dir = format!("{LSP_ID}-{LSP_PINNED_TAG}");
+        let binary_path = Path::new(&version_dir)
+            .join(&bin_name)
+            .to_string_lossy()
+            .to_string();
 
-        if !matches!(fs::metadata(&binary_path), Ok(meta) if meta.is_file()) {
+        if !is_file(&binary_path) {
             zed::set_language_server_installation_status(
                 language_server_id,
                 &zed::LanguageServerInstallationStatus::Downloading,
             );
-            if let Err(err) = zed::download_file(
-                &asset.download_url,
-                &version_dir,
-                match platform {
-                    zed::Os::Windows => zed::DownloadedFileType::Zip,
-                    _ => zed::DownloadedFileType::GzipTar,
-                },
-            ) {
-                if let Some(path) = cached_disk_path.as_ref() {
-                    self.cached_binary_path = Some(path.clone());
-                    return Ok(path.clone());
-                }
-                return Err(format!("failed to download language server: {err}"));
-            }
+            install(platform, arch, &version_dir, &bin_name)?;
+            remove_other_versions(&version_dir);
         }
 
-        let binary_path_str = binary_path.to_string_lossy().to_string();
         if platform != zed::Os::Windows {
-            zed::make_file_executable(&binary_path_str)
+            zed::make_file_executable(&binary_path)
                 .map_err(|e| format!("failed to make binary executable: {e}"))?;
         }
 
-        self.cached_binary_path = Some(binary_path_str.clone());
-        Ok(binary_path_str)
+        self.cached_binary_path = Some(binary_path.clone());
+        Ok(binary_path)
     }
 }
 
